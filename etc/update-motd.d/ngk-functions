@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+
+# Colors
+export CA="\e[34m"  # Accent
+export CO="\e[32m"  # Ok
+export CW="\e[33m"  # Warning
+export CE="\e[31m"  # Error
+export CN="\e[0m"   # None
+
+# Max width used for components in second column
+export WIDTH=60
+
+LEFT_COLUMN_SIZE=14
+
+# $1 - left column
+# $2 - right column
+print_columns() {
+    [ -z "$2" ] && return
+    local left_text=""
+    if [[ ! "$1" = "" ]]; then
+        left_text=$(set_variable_length "$1:" "$LEFT_COLUMN_SIZE")
+    fi
+    local right_text="$2"
+    paste <(echo -e "${CA}$left_text${CN}") <(echo -e "$right_text")
+}
+
+# $1 - variable content
+# $2 - variable size
+set_variable_length() {
+    local out="$1"
+    while [ "${#out}" -lt "$2" ]; do
+        out+=" "
+    done;
+    echo "$out"
+}
+
+# Prints given text n times
+# $1 - text to print
+# $2 - how many times to print
+print_n() {
+    local out=""
+    for ((i=0; i<$2; i++)); do
+        out+="$1"
+    done
+    echo "$out"
+}
+
+# Prints bar divided in two parts by given percentage
+# $1 - bar width
+# $2 - percentage
+print_bar() {
+    local bar_width=$(($1 - 2))
+    local used_width=$(($2 * $bar_width / 100))
+    local free_width=$(($bar_width - $used_width))
+    local out=""
+    out+="["
+    out+="${CE}"
+    out+=$(print_n "=" $used_width)
+    out+="${CO}"
+    out+=$(print_n "=" $free_width)
+    out+="${CN}"
+    out+="]"
+    echo "$out"
+}
+
+# Prints text with color according to given value and two thresholds
+# $1 - text to print
+# $2 - current value
+# $3 - warning threshold
+# $4 - error threshold
+print_color() {
+    local out=""
+    if (( $(bc -l <<< "$2 < $3") )); then
+        out+="${CO}"
+    elif (( $(bc -l <<< "$2 >= $3 && $2 < $4") )); then
+        out+="${CW}"
+    else
+        out+="${CE}"
+    fi
+    out+="$1${CN}"
+    echo "$out"
+}
+
+# Prints text as either acitve or inactive
+# $1 - text to print
+# $2 - literal "active" or "inactive"
+print_status() {
+    local out=""
+    if [ "$2" == "active" ]; then
+        out+="${CO}▲${CN}"
+    else
+        out+="${CE}▼${CN}"
+    fi
+    out+=" $1${CN}"
+    echo "$out"
+}
+
+# Prints comma-separated arguments wrapped to the given width
+# $1 - width to wrap to
+# $2, $3, ... - values to print
+print_wrap() {
+    local width=$1
+    shift
+    local out=""
+    local line_length=0
+    for element in "$@"; do
+        element="$element,"
+        local visible_elelement="$(strip_ansi "$element")"
+        local future_length=$(($line_length + ${#visible_elelement}))
+        if [ $line_length -ne 0 ] && [ $future_length -gt $width ]; then
+            out+="\n"
+            line_length=0
+        fi
+        out+="$element "
+        line_length=$(($line_length + ${#visible_elelement}))
+    done
+    [ -n "$out" ] && echo "${out::-2}"
+}
+
+# Prints some text justified to left and some justified to right
+# $1 - total width
+# $2 - left text
+# $3 - right text
+print_split() {
+    if (( ${#2} + ${#3} < $1 )); then
+        first_half_width=${#2}
+    else
+        first_half_width=$(($1 / 2))
+    fi
+    second_half_width=$(($1 - first_half_width))
+    printf "%-${first_half_width}s%${second_half_width}s" "$2" "$3"
+}
+
+# Prints one line of text, truncates it at specified width and add ellipsis.
+# Truncation can occur either at the start or at the end of the string.
+# $1 - line to print
+# $2 - width limit
+# $3 - "start" or "end", default "end"
+print_truncate() {
+    local out
+    local new_length=$(($2 - 1))
+    # Just echo the string if it's shorter than the limit
+    if [ ${#1} -le $2 ]; then
+        out="$1"
+    elif [ -z "$3" ] || [ "$3" = "end" ]; then
+        out="${1::$new_length}…"
+    else
+        out="…${1: -$new_length}"
+    fi
+    echo "$out"
+}
+
+# Strips ANSI color codes from given string
+# $1 - text to strip
+strip_ansi() {
+    echo "$(echo -e "$1" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[m|K]//g")"
+}
+

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Dir of this scrip
+export BASE_DIR="$(dirname "$(readlink -f "$0")")"
+
+# source functions
+source $BASE_DIR/ngk-functions
+
+declare -A services
+services["Docker"]="docker"
+services["Samba"]="smbd"
+services["SSH"]="sshd"
+services["Fail2Ban"]="fail2ban"
+services["Firewalld"]="firewalld"
+
+statuses=()
+for key in "${!services[@]}"; do
+    # systemctl is-active returns non-zero code if service is inactive
+    set +e; status=$(systemctl is-active ${services[$key]}); set -e
+    statuses+=("$(print_status "$key" "$status")")
+done
+
+text="$(print_wrap $WIDTH "${statuses[@]}")"
+
+print_columns "Services" "$text"

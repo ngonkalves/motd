@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Dir of this scrip
+export BASE_DIR="$(dirname "$(readlink -f "$0")")"
+
+# source functions
+source $BASE_DIR/ngk-functions
+
+source "/etc/os-release"
+
+print_columns "OS" "$NAME"
+
+print_columns "Kernel" $(uname -r)
